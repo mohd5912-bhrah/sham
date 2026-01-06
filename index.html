@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0c7b93">
+
+<title>مكتبة الشاملة الذهبية</title>
+
+<style>
+body{
+  font-family: Tahoma, sans-serif;
+  background:#f4f6f8;
+  margin:0;
+  padding:15px;
+}
+
+h2{
+  margin:0 0 15px 0;
+  color:#0c7b93;
+}
+
+.container{
+  display:flex;
+  flex-wrap:wrap;
+  gap:15px;
+}
+
+.box{
+  background:#fff;
+  border-radius:10px;
+  padding:10px;
+  flex:1;
+  min-width:280px;
+  box-shadow:0 2px 6px rgba(0,0,0,.06);
+}
+
+#authors{
+  max-height: 70vh;      /* تحديد ارتفاع نسبي */
+  overflow-y: auto;      /* تفعيل السكرول العمودي */
+  padding-right: 5px;
+  background:#f9ffd9;
+}
+
+#cats{
+  max-height: 70vh;      /* تحديد ارتفاع نسبي */
+  overflow-y: auto;      /* تفعيل السكرول العمودي */
+  padding-right: 5px;
+  background:#f0ddec;
+}
+
+#books{
+  max-height: 70vh;      /* تحديد ارتفاع نسبي */
+  overflow-y: auto;      /* تفعيل السكرول العمودي */
+  padding-right: 5px;
+  background:#b4e3ed;
+}
+
+.search{
+  width:97%;
+  padding:7px;
+  margin-bottom:10px;
+  border-radius:6px;
+  border:1px solid #ccc;
+}
+
+.item{
+  padding:6px;
+  border-bottom:1px solid #eee;
+  cursor:pointer;
+}
+
+.item:hover{
+  background:#f0f7fa;
+}
+
+.badge{
+  background:#0c7b93;
+  color:#fff;
+  font-size:12px;
+  padding:2px 6px;
+  border-radius:10px;
+}
+
+/* ===== بطاقات الكتب ===== */
+.book-card{
+  background:#fff;
+  border-radius:12px;
+  margin-bottom:15px;
+  overflow:hidden;
+  box-shadow:0 2px 6px rgba(0,0,0,.1);
+  transition: transform .2s, box-shadow .2s;
+}
+
+.book-card:hover{
+  transform:translateY(-4px);
+  box-shadow:0 6px 12px rgba(0,0,0,.15);
+}
+
+.book-header{
+  padding:12px 15px;
+  cursor:pointer;
+  font-weight:bold;
+  font-size:16px;
+  color:#0c7b93;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:#e8f2f5;
+  transition: background .2s;
+}
+
+.book-header:hover{
+  background:#d0e6eb;
+}
+
+.book-info{
+  padding:10px 15px;
+  background:#f9f9f9;
+  border-top:1px solid #ddd;
+  display:none;
+  white-space:pre-line;
+  line-height:1.5;
+  color:#333;
+}
+
+.toggle-icon.open{
+  transform:rotate(90deg);
+}
+
+.highlight{
+  background:yellow;
+}
+</style>
+
+</head>
+<body>
+
+<h2 id="mainTitle">📚 مكتبة الشاملة الذهبية</h2>
+
+
+<div class="container">
+
+  <div class="box">
+    <h3>الأقسام</h3>
+    <input class="search" id="catSearch" placeholder="بحث في الأقسام...">
+    <div id="cats"></div>
+  </div>
+
+  <div class="box">
+    <h3>المؤلفون</h3>
+    <input class="search" id="authorSearch" placeholder="بحث في المؤلفين...">
+    <div id="authors"></div>
+  </div>
+
+  <div class="box" style="flex:2">
+    <h3>الكتب</h3>
+    <input class="search" id="bookSearch" placeholder="بحث في الكتب...">
+    <div id="books"></div>
+  </div>
+
+</div>
+
+
+<script>
+
+let currentCat = null;
+let currentAuthor = null;
+
+let data = {
+  categories: [],
+  books: []
+};
+
+
+// ===== قراءة JSON =====
+fetch("library.json")
+  .then(res => res.json())
+  .then(json => {
+    data = json;
+	
+	 const total = data.books.length;
+    document.getElementById("mainTitle").innerHTML =
+      `مكتبة الشاملة الذهبية - <font color=red>📚 عدد الكتب ${total} </font>كتاب`;
+	
+	
+    renderCategories();
+    renderAuthors();
+    renderBooks();
+  })
+  .catch(err => console.error("خطأ في تحميل البيانات:", err));
+
+
+// ===== تسليط الضوء =====
+function highlight(text, q){
+  if(!q) return text;
+
+  const safe = q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const re = new RegExp(`(${safe})`, "gi");
+
+  return text.replace(re, '<span class="highlight">$1</span>');
+}
+
+
+// ===== عرض الأقسام =====
+function renderCategories(){
+
+  const q = document.getElementById("catSearch").value.toLowerCase();
+  const catsDiv = document.getElementById("cats");
+
+  catsDiv.innerHTML = "";
+
+  data.categories
+  .filter(c => !q || c.name.toLowerCase().includes(q))
+  .forEach(c => {
+
+    const count = data.books.filter(b => b.category_id == c.id).length;
+
+    const div = document.createElement("div");
+    div.className = "item";
+
+    div.innerHTML = `${c.name} <span class="badge">${count}</span>`;
+
+    div.onclick = () => {
+      currentCat = c.id;
+      currentAuthor = null;
+      renderBooks();
+    };
+
+    catsDiv.appendChild(div);
+
+  });
+
+}
+
+
+// ===== عرض المؤلفين =====
+function renderAuthors(){
+
+  const q = document.getElementById("authorSearch").value.toLowerCase();
+  const authorsDiv = document.getElementById("authors");
+
+  authorsDiv.innerHTML = "";
+
+  const map = {};
+
+  data.books.forEach(b => {
+    map[b.author] = (map[b.author] || 0) + 1;
+  });
+
+
+  Object.keys(map)
+  .filter(a => !q || a.toLowerCase().includes(q))
+  .forEach(a => {
+
+    const div = document.createElement("div");
+    div.className = "item";
+
+    div.innerHTML = `${a} <span class="badge">${map[a]}</span>`;
+
+    div.onclick = () => {
+      currentAuthor = a;
+      currentCat = null;
+      renderBooks();
+    };
+
+    authorsDiv.appendChild(div);
+
+  });
+
+}
+
+
+// ===== البحث الفوري في الكتب =====
+document.getElementById("bookSearch")
+  .addEventListener("keyup", function(){
+    liveSearchBooks(this.value);
+});
+
+
+function liveSearchBooks(term){
+
+  const q = term.toLowerCase();
+
+  const result = data.books.filter(b => {
+
+    // إبقاء الفلترة حسب القسم أو المؤلف إن كانت مفعلة
+    if(currentCat && b.category_id != currentCat) return false;
+    if(currentAuthor && b.author != currentAuthor) return false;
+
+    // عند عدم كتابة شيء اعرض الكل
+    if(!q) return true;
+
+    // 🔎 البحث في title فقــط
+    return b.title.toLowerCase().includes(q);
+
+  });
+
+  renderBooks(result);
+
+}
+
+
+
+
+// ===== عرض الكتب =====
+function renderBooks(list = null){
+
+  const q = document.getElementById('bookSearch').value.toLowerCase();
+  const booksDiv = document.getElementById('books');
+
+  booksDiv.innerHTML="";
+
+  // إذا لم تُمرر نتائج استخدم جميع الكتب
+  const source = list || data.books;
+
+  source.filter(b=>{
+    if(currentCat && b.category_id!=currentCat) return false;
+    if(currentAuthor && b.author!=currentAuthor) return false;
+    return true;
+  }).forEach(b=>{
+
+    const card=document.createElement('div');
+    card.className="book-card";
+
+    card.innerHTML=`
+      <div class="book-header">
+        <span>${highlight(b.title, q)}</span>
+        <span class="toggle-icon">&#9654;</span>
+      </div>
+      <div class="book-info">
+        ✍️ ${b.author}\n\n${highlight(b.info, q)}
+      </div>
+    `;
+
+    const header = card.querySelector('.book-header');
+    const info = card.querySelector('.book-info');
+    const icon = card.querySelector('.toggle-icon');
+
+    header.addEventListener('click',()=>{
+      const visible = info.style.display=="block";
+      info.style.display = visible ? "none":"block";
+      icon.classList.toggle("open", !visible);
+    });
+
+    booksDiv.appendChild(card);
+  });
+
+}
+
+
+
+
+// ===== ربط البحث الفوري =====
+document.getElementById("catSearch")
+  .addEventListener("input", renderCategories);
+
+document.getElementById("authorSearch")
+  .addEventListener("input", renderAuthors);
+
+document.getElementById("bookSearch")
+  .addEventListener("input", () => renderBooks());
+
+// ===== تفريغ الحقول عند تحديث الصفحة =====
+window.addEventListener('DOMContentLoaded', () => {
+
+  document.getElementById('catSearch').value = '';
+  document.getElementById('authorSearch').value = '';
+  document.getElementById('bookSearch').value = '';
+
+  currentCat = null;
+  currentAuthor = null;
+  });
+
+
+
+// ===== تفعيل PWA =====
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js")
+    .then(()=>console.log("PWA Ready"))
+    .catch(err=>console.error("SW error", err));
+}
+
+</script>
+
+</body>
+</html>
