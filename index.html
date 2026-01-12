@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>📚 مكتبة الشاملة الذهبية</title>
+
+<style>
+body{
+  font-family:Tahoma,sans-serif;
+  background:#f4f6f8;
+  margin:0;
+  padding:10px;
+}
+h2{color:#0c7b93;margin:5px 0 10px}
+
+.top-bar{
+  display:flex;
+  gap:8px;
+  margin-bottom:10px;
+}
+.top-bar button{
+  flex:1;
+  border:none;
+  border-radius:20px;
+  padding:8px;
+  background:#0c7b93;
+  color:#fff;
+  font-size:14px;
+}
+
+.container{display:flex;flex-direction:column;gap:10px}
+
+.box{
+  background:#fff;
+  border-radius:10px;
+  padding:10px;
+  box-shadow:0 2px 6px rgba(0,0,0,.08);
+}
+
+.search{
+  width:100%;
+  padding:7px;
+  border-radius:6px;
+  border:1px solid #ccc;
+  margin-bottom:8px;
+}
+
+.item{
+  padding:6px;
+  border-bottom:1px solid #eee;
+  cursor:pointer;
+}
+.item:hover{background:#f0f7fa}
+
+.badge{
+  background:#0c7b93;
+  color:#fff;
+  padding:2px 6px;
+  border-radius:10px;
+  font-size:12px;
+}
+
+/* ==== الكتب ==== */
+#booksBox{
+  display:none;
+}
+#books{
+  max-height:65vh;
+  overflow:auto;
+}
+
+.book-card{
+  border-radius:10px;
+  margin-bottom:10px;
+  background:#fff;
+  box-shadow:0 2px 6px rgba(0,0,0,.1);
+}
+.book-header{
+  padding:10px;
+  background:#e8f2f5;
+  cursor:pointer;
+  display:flex;
+  justify-content:space-between;
+  color:#0c7b93;
+  font-weight:bold;
+}
+.book-info{
+  display:none;
+  padding:10px;
+  background:#fafafa;
+  white-space:pre-line;
+  line-height:1.6;
+}
+.highlight{background:yellow}
+</style>
+</head>
+
+<body>
+
+<h2 id="title">📚 مكتبة الشاملة الذهبية</h2>
+
+<div class="top-bar">
+  <button onclick="showCategories()">📂 الأقسام</button>
+  <button onclick="showAuthors()">👤 المؤلفون</button>
+  <button onclick="goBack()">⬅ رجوع</button>
+</div>
+
+<div class="container">
+
+  <div class="box" id="catsBox">
+    <input class="search" id="catSearch" placeholder="بحث في الأقسام">
+    <div id="cats"></div>
+  </div>
+
+  <div class="box" id="authorsBox" style="display:none">
+    <input class="search" id="authorSearch" placeholder="بحث في المؤلفين">
+    <div id="authors"></div>
+  </div>
+
+  <div class="box" id="booksBox">
+    <input class="search" id="bookSearch" placeholder="بحث في الكتب">
+    <div id="books"></div>
+  </div>
+
+</div>
+
+<script>
+let data={books:[],categories:[]};
+let currentCat=null;
+let currentAuthor=null;
+let currentView="categories";
+let lastView=null;
+
+/* تحميل البيانات */
+fetch("library.json")
+.then(r=>r.json())
+.then(j=>{
+  data=j;
+  document.getElementById("title").innerText=
+    `📚 مكتبة الشاملة الذهبية (${data.books.length} كتاب)`;
+  renderCategories();
+});
+
+/* ===== الأقسام ===== */
+function renderCategories(){
+  const q=catSearch.value;
+  cats.innerHTML="";
+  data.categories.filter(c=>c.name.includes(q)).forEach(c=>{
+    const count=data.books.filter(b=>b.category_id==c.id).length;
+    const d=document.createElement("div");
+    d.className="item";
+    d.innerHTML=`${c.name} <span class="badge">${count}</span>`;
+    d.onclick=()=>{
+      currentCat=c.id;
+      currentAuthor=null;
+      lastView="categories";
+      showBooks(c.name,count);
+    };
+    cats.appendChild(d);
+  });
+}
+
+/* ===== المؤلفون ===== */
+function showAuthors(){
+  currentView="authors";
+  catsBox.style.display="none";
+  booksBox.style.display="none";
+  authorsBox.style.display="block";
+  renderAuthors();
+}
+
+function renderAuthors(){
+  const q=authorSearch.value;
+  authors.innerHTML="";
+  const map={};
+  data.books.forEach(b=>map[b.author]=(map[b.author]||0)+1);
+
+  Object.keys(map).filter(a=>a.includes(q)).forEach(a=>{
+    const d=document.createElement("div");
+    d.className="item";
+    d.innerHTML=`${a} <span class="badge">${map[a]}</span>`;
+    d.onclick=()=>{
+      currentAuthor=a;
+      currentCat=null;
+      lastView="authors";
+      showBooks(a,map[a]);
+    };
+    authors.appendChild(d);
+  });
+}
+
+/* ===== الكتب ===== */
+function highlight(t,q){
+ if(!q) return t;
+ const r=new RegExp(`(${q})`,"gi");
+ return t.replace(r,'<span class="highlight">$1</span>');
+}
+
+function showBooks(title,count){
+  currentView="books";
+  catsBox.style.display="none";
+  authorsBox.style.display="none";
+  booksBox.style.display="block";
+  document.getElementById("title").innerText=`📚 ${title} (${count} كتاب)`;
+  renderBooks();
+}
+
+function renderBooks(){
+ const q=bookSearch.value.toLowerCase();
+ books.innerHTML="";
+ data.books.filter(b=>{
+  if(currentCat && b.category_id!=currentCat) return false;
+  if(currentAuthor && b.author!=currentAuthor) return false;
+  if(!q) return true;
+  return (
+    b.title.toLowerCase().includes(q) ||
+    b.author.toLowerCase().includes(q) ||
+    b.info.toLowerCase().includes(q)
+  );
+ }).forEach(b=>{
+  const d=document.createElement("div");
+  d.className="book-card";
+  d.innerHTML=`
+    <div class="book-header">${highlight(b.title,q)}</div>
+    <div class="book-info">✍️ ${highlight(b.author,q)}\n\n${highlight(b.info,q)}</div>
+  `;
+  d.querySelector(".book-header").onclick=()=>{
+    const i=d.querySelector(".book-info");
+    i.style.display=i.style.display=="block"?"none":"block";
+  };
+  books.appendChild(d);
+ });
+}
+
+/* ===== رجوع ===== */
+function showCategories(){
+ currentView="categories";
+ currentCat=null;
+ currentAuthor=null;
+ catsBox.style.display="block";
+ authorsBox.style.display="none";
+ booksBox.style.display="none";
+ document.getElementById("title").innerText=
+   `📚 مكتبة الشاملة الذهبية (${data.books.length} كتاب)`;
+}
+
+function goBack(){
+ if(currentView==="books"){
+   lastView==="authors"?showAuthors():showCategories();
+ }
+ else if(currentView==="authors") showCategories();
+}
+
+/* أحداث البحث */
+catSearch.oninput=renderCategories;
+authorSearch.oninput=renderAuthors;
+bookSearch.oninput=renderBooks;
+</script>
+
+</body>
+</html>
